@@ -12,10 +12,12 @@ Batch-converts MakeMKV rips (Blu-ray / DVD `.mkv`) to H.264 with the English sub
     git clone git@github.com:jmpucd/batch-encode.git ~/code/batch-encode
     cd ~/code/batch-encode
     brew bundle
-    # edit input_folder / output_folder at the top of batch_encode.py
     python3 batch_encode.py
 
-Set `TEST_SECONDS = 60` in the script to encode just the first minute of each film as a test.
+On first run a folder picker asks for the input and output folders and saves them to `~/.config/batch-encode/config.json`.
+
+- `python3 batch_encode.py --configure` re-selects the folders
+- `python3 batch_encode.py --test 60` encodes just the first minute of each film
 
 ## Update later
     cd ~/code/batch-encode && git pull

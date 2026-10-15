@@ -3,18 +3,56 @@ import subprocess
 import json
 import shlex
 import tempfile
+import argparse
 
-# Set input/output directories
-input_folder = "/Users/jmpike/Movies/Process"  # Source files
-output_folder = "/Users/jmpike/Movies/Encoded"  # Separate output folder
-
-# Set to a number of seconds to encode only the first N seconds of each film (quick test).
-# None = encode the full film.
-TEST_SECONDS = None
+CONFIG_PATH = os.path.expanduser("~/.config/batch-encode/config.json")
 
 # Image-based subtitle codecs (Blu-ray PGS, DVD VobSub) must be overlaid, not rendered by libass.
 BITMAP_SUB_CODECS = {"hdmv_pgs_subtitle", "dvd_subtitle", "dvb_subtitle", "xsub"}
 
+
+def pick_folder(prompt):
+    """Show the macOS folder picker; fall back to typing a path."""
+    script = f'POSIX path of (choose folder with prompt "{prompt}")'
+    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    if result.returncode == 0 and result.stdout.strip():
+        return result.stdout.strip().rstrip("/")
+    while True:
+        path = os.path.expanduser(input(f"{prompt}\n  Path: ").strip().strip("'\""))
+        if path:
+            return path.rstrip("/")
+
+
+def load_config(force_prompt=False):
+    """Return (input_folder, output_folder), prompting on first run or with --configure."""
+    config = {}
+    if not force_prompt and os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH) as f:
+                config = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            config = {}
+
+    if not (config.get("input_folder") and config.get("output_folder")):
+        print("First-time setup: choose your folders.")
+        config["input_folder"] = pick_folder("Select the INPUT folder (MakeMKV rips, one folder per film)")
+        config["output_folder"] = pick_folder("Select the OUTPUT folder for encoded films")
+        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f, indent=2)
+        print(f"Saved to {CONFIG_PATH} (re-run with --configure to change)")
+
+    return config["input_folder"], config["output_folder"]
+
+
+parser = argparse.ArgumentParser(description="Batch-encode MakeMKV rips with English subtitles burned in.")
+parser.add_argument("--configure", action="store_true", help="re-select the input/output folders")
+parser.add_argument("--test", type=int, metavar="SECONDS", help="encode only the first N seconds of each film")
+args = parser.parse_args()
+
+TEST_SECONDS = args.test
+input_folder, output_folder = load_config(force_prompt=args.configure)
+print(f"Input:  {input_folder}\nOutput: {output_folder}")
 os.makedirs(output_folder, exist_ok=True)
 
 
